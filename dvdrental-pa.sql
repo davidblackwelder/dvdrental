@@ -55,7 +55,7 @@ CREATE TABLE summary (
 -- Select the following columns from the joining of the following tables and insert the resulting rows into the detailed table grouped by and ordered by
 INSERT INTO detailed
 SELECT c.store_id,
-       fn_status(c.active) AS status,
+       status(c.active) AS status,
        c.first_name,
        c.last_name,
        c.email,
