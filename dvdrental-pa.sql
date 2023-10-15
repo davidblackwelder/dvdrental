@@ -1,4 +1,4 @@
--- B.  Provide original code for function(s) in text format that perform the transformation(s) you identified in part A4.
+-- Perform transformation on status column from integer to a user-friendly string.
 CREATE OR REPLACE FUNCTION status(active INTEGER)
   RETURNS CHAR(8)
   LANGUAGE plpgsql
@@ -14,9 +14,7 @@ BEGIN
 END;
 $$
 
--- C.  Provide original SQL code in a text format that creates the detailed and summary tables to hold your report table sections.
-
--- Drop detailed table if already exists, then create a new detailed table with zero row
+-- Drop detailed table if already exists, then creates a new detailed table with zero rows
 DROP TABLE IF EXISTS detailed;
 CREATE TABLE detailed (
   store_id SMALLINT,
@@ -38,8 +36,8 @@ CREATE TABLE detailed (
   postal_code VARCHAR(10)
 );
 
--- Use line below to check detailed table columns, data types, and no rows
-SELECT * FROM detailed;
+-- Uncomment line below to check detailed table columns, data types, and no rows
+-- SELECT * FROM detailed;
 
 -- Drop summary table if already exists, then create a new summary table with zero rows
 DROP TABLE IF EXISTS summary;
@@ -51,12 +49,10 @@ CREATE TABLE summary (
   total_rentals BIGINT
 );
 
--- Use line below to check summary table columns, data types, and no rows
-SELECT * FROM summary;
+-- Uncomment line below to check summary table columns, data types, and no rows
+-- SELECT * FROM summary;
 
--- D.  Provide an original SQL query in a text format that will extract the raw data needed for the detailed section of your report from the source database.
-
--- Read as: Select the following columns from the joining of the following tables and insert the resulting rows into the detailed table grouped by and ordered by
+-- Select the following columns from the joining of the following tables and insert the resulting rows into the detailed table grouped by and ordered by
 INSERT INTO detailed
 SELECT c.store_id,
        fn_status(c.active) AS status,
@@ -110,20 +106,20 @@ GROUP BY status,
          c.store_id
 ORDER BY c.first_name, genre;
 
--- Run code below to ensure rows are inserted into detailed table
-SELECT * FROM detailed;
+-- Uncomment line below to ensure rows are inserted into detailed table
+-- SELECT * FROM detailed;
 
--- Read as: Select the following columns from the detailed table and insert the resulting rows into the summary table grouped by and ordered by
+-- Select the following columns from the detailed table and insert the resulting rows into the summary table grouped by and ordered by
 INSERT INTO summary
 SELECT store_id, first_name, last_name, status, SUM(num_of_times_rented) AS total_rentals
 FROM detailed
 GROUP BY first_name, last_name, status, store_id
 ORDER BY total_rentals DESC, first_name;
 
--- Run code below to ensure rows are inserted into summary table
-SELECT * FROM summary;
+-- Uncomment line below to ensure rows are inserted into summary table
+-- SELECT * FROM summary;
 
--- E.  Provide original SQL code in a text format that creates a trigger on the detailed table of the report that will continually update the summary table as data is added to the detailed table.
+-- Creates a trigger on the detailed table of the report that will continually update the summary table as data is added to the detailed table.
 
 -- step 1: Trigger function
 CREATE OR REPLACE FUNCTION insert_new_rental_into_summary_from_detailed()
@@ -148,20 +144,20 @@ CREATE TRIGGER new_rental_for_summary
   FOR EACH STATEMENT
     EXECUTE PROCEDURE insert_new_rental_into_summary_from_detailed();
 
--- Use code below to get current totals for each table to compare after inserting new row to test trigger function and statement work
-SELECT SUM(num_of_times_rented) FROM detailed; -- Output = 16044
-SELECT SUM(total_rentals) FROM summary; -- output should match output from statement above
+-- Uncomment lines below to get current totals for each table to compare after inserting new row to test trigger function and statement work
+-- SELECT SUM(num_of_times_rented) FROM detailed;
+-- SELECT SUM(total_rentals) FROM summary; -- output should match output from statement above
 
--- Insert test customer to ensure trigger works
-INSERT INTO detailed (store_id, status, first_name, last_name, email, num_of_times_rented, title, genre) VALUES
-            (1, 'Active', 'Test', 'Customer', 'test@email.com', 1000, 'Test Film Title', 'Action');
+-- Uncomment to insert test customer to ensure trigger works
+-- INSERT INTO detailed (store_id, status, first_name, last_name, email, num_of_times_rented, title, genre) VALUES
+--             (1, 'Active', 'Test', 'Customer', 'test@email.com', 1000, 'Test Film Title', 'Action');
 
--- Use code below to get totals after inserting a row to make sure trigger function and statement are working
-SELECT SUM(num_of_times_rented) FROM detailed; -- Output = 17044
-SELECT SUM(total_rentals) FROM summary; -- output should match output from statement above
-SELECT * FROM summary; -- this should show Test Customer as first record with 1,000 total rentals
+-- Uncomment code below to get totals after inserting a row to make sure trigger function and statement are working
+-- SELECT SUM(num_of_times_rented) FROM detailed;
+-- SELECT SUM(total_rentals) FROM summary; -- output should match output from statement above
+-- SELECT * FROM summary; -- this should show Test Customer as first record with 1,000 total rentals
 
--- F.  Provide an original stored procedure in a text format that can be used to refresh the data in both the detailed table and summary table. The procedure should clear the contents of the detailed table and summary table and perform the raw data extraction from part D.
+-- Creates a stored procedure that can be used to refresh the data in both the detailed table and summary table. This will clear the detailed table, perform the data extraction and insert data in the detailed table. This will then invoke the trigger function to update the summary table.
 
 CREATE OR REPLACE PROCEDURE refresh_detailed_and_summary()
 LANGUAGE plpgsql
@@ -170,7 +166,7 @@ BEGIN
   -- Clears table content
   DELETE FROM detailed;
 
-  -- Read as: Select the following columns from the joining of the following tables and insert the resulting rows into the detailed table grouped by and ordered by
+  -- Select the following columns from the joining of the following tables and insert the resulting rows into the detailed table grouped by and ordered by
   INSERT INTO detailed
   SELECT c.store_id,
         status(c.active) AS status,
@@ -223,27 +219,16 @@ BEGIN
           f.rental_rate,
           c.store_id
   ORDER BY c.first_name, genre;
-
-  -- Clears table content
-  DELETE FROM summary;
-
-  -- Read as: Select the following columns from the detailed table and insert the resulting rows into the summary table grouped by and ordered by
-  INSERT INTO summary
-  SELECT store_id, first_name, last_name, status, SUM(num_of_times_rented) AS total_rentals
-  FROM detailed
-  GROUP BY first_name, last_name, status, store_id
-  ORDER BY total_rentals DESC;
 END;
 $$;
 
--- 1.  Identify a relevant job scheduling tool that can be used to automate the stored procedure.
 -- A job scheduling tool that could be used to automate the stored procedure is pgAgent
--- For testing purposes I will run this manually
+-- For testing purposes call this manually
 CALL refresh_detailed_and_summary();
 
--- Use code below to get current totals for each table to test the stored procedure works at refereshing data
-SELECT SUM(num_of_times_rented) FROM detailed; -- Output = 16044
-SELECT SUM(total_rentals) FROM summary; -- output should match output from statement above
-SELECT * FROM summary; -- this should no longer show Test Customer as first record with 1,000 total rentals
-SELECT * FROM detailed WHERE first_name = 'Test'; -- this should not return any results
-SELECT * FROM summary WHERE first_name = 'Test';
+-- Uncomment code below to get current totals for each table to test the stored procedure works at refereshing data
+-- SELECT SUM(num_of_times_rented) FROM detailed;
+-- SELECT SUM(total_rentals) FROM summary; -- output should match output from statement above
+-- SELECT * FROM summary; -- this should no longer show Test Customer as first record with 1,000 total rentals
+-- SELECT * FROM detailed WHERE first_name = 'Test'; -- this should not return any results
+-- SELECT * FROM summary WHERE first_name = 'Test';
